@@ -1,0 +1,23 @@
+{
+  "name": "tapnpay",
+  "version": "1.0.0",
+  "description": "TapNPay is a fully responsive e-wallet application that allows users to seamlessly send and receive money. It is built with a modern tech stack, combining React.js and Tailwind CSS for the frontend, Node.js, Express.js, and MongoDB for the backend, with Zod for robust input validation. The application ensures secure and atomic payment transactions using MongoDB's native transaction capabilities.",
+  "main": "index.js",
+  "scripts": {
+    "build": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
+    "start": "npm run start --prefix backend"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bhaxkar/TapNPay.git"
+  },
+  "keywords": [
+    "e-wallet", "mobile-wallet"
+  ],
+  "author": "Bhaskar Jha",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/bhaxkar/TapNPay/issues"
+  },
+  "homepage": "https://github.com/bhaxkar/TapNPay#readme"
+}
