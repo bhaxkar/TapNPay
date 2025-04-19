@@ -1,7 +1,7 @@
 import zod from "zod";
 import { User } from "../models/User.model.js";
 import { Account } from "../models/account.model.js";
-import jwt from "jsonwebtoken"
+import jwt from "jsonwebtoken";
 
 
 const signupSchema = zod.object({
@@ -126,7 +126,7 @@ const updateProfileSchema = zod.object({
   lastName: zod.string().optional(),
 });
 
-export const updateProfile = async (req, res) => {
+export const updateUserProfile = async (req, res) => {
   const validationResult = updateProfileSchema.safeParse(req.body);
   if (!validationResult.success) {
     return res.status(400).json({
@@ -147,11 +147,12 @@ export const updateProfile = async (req, res) => {
   }
 };
 
-export const filteredUsers = async (req, res) => {
+export const getUsers = async (req, res) => {
   const filter = req.query.filter || "";
 
   try {
     const users = await User.find({
+      _id: { $ne: req.userId },
       $or: [
         { firstName: { $regex: filter, $options: "i" } },
         { lastName: { $regex: filter, $options: "i" } },
@@ -170,5 +171,24 @@ export const filteredUsers = async (req, res) => {
     return res.status(500).json({
       message: "Internal server error",
     });
+  }
+};
+
+export const validateAuth = async(req, res) => {
+  try {
+    const user = await User.findById(req.userId).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    res.status(200).json({
+      _id: user._id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName
+    });
+  } catch (error) {
+    console.error("Validate auth error:", error);
+    return res.status(500).json({ message: "Internal Server Error" });
   }
 };
