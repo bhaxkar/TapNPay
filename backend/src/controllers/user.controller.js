@@ -1,8 +1,7 @@
 import zod from "zod";
-import { User } from "../models/User.model.js";
+import { User } from "../models/user.model.js";
 import { Account } from "../models/account.model.js";
 import jwt from "jsonwebtoken";
-
 
 const signupSchema = zod.object({
   email: zod.string().email({ message: "Invalid email address" }),
@@ -40,12 +39,12 @@ export const signup = async (req, res) => {
       lastName,
       password,
     });
-    
+
     // Give the user a random balance between 1 and 10000.This is so we don’t have to integrate with banks and give them random balances to start with.
     const userId = newUser._id;
     await Account.create({
       userId,
-      balance: 1+ Math.random() * 10000
+      balance: 1 + Math.random() * 10000,
     });
 
     const jwtToken = jwt.sign(
@@ -80,7 +79,7 @@ export const login = async (req, res) => {
     const validationResult = loginSchema.safeParse(req.body);
     if (!validationResult.success) {
       return res.status(400).json({
-        message: "Incorrect inputs",
+        message: "Incorrect inputs fields",
         error: validationResult.error.errors,
       });
     }
@@ -94,7 +93,7 @@ export const login = async (req, res) => {
       });
     }
 
-    const isPasswordValid = user.isPasswordCorrect(password);
+    const isPasswordValid = await user.isPasswordCorrect(password);
     if (!isPasswordValid) {
       return res.status(401).json({
         message: "Invalid email or password",
@@ -109,7 +108,7 @@ export const login = async (req, res) => {
       { expiresIn: "24h" }
     );
 
-    return res.status(201).json({
+    return res.status(200).json({
       message: "User Logged In successfully",
       token: jwtToken,
     });
@@ -136,9 +135,17 @@ export const updateUserProfile = async (req, res) => {
   }
 
   try {
-    await User.updateOne({ _id: req.userId }, validationResult.data);
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: req.userId },
+      validationResult.data,
+      { new: true }
+    ).select("-password");
     return res.status(200).json({
       message: "User details updated successfully",
+      user: {
+        firstName: updatedUser.firstName,
+        lastName: updatedUser.lastName,
+      },
     });
   } catch (err) {
     return res.status(500).json({
@@ -148,18 +155,13 @@ export const updateUserProfile = async (req, res) => {
 };
 
 export const getUsers = async (req, res) => {
-  const filter = req.query.filter || "";
-
   try {
-    const users = await User.find({
-      _id: { $ne: req.userId },
-      $or: [
-        { firstName: { $regex: filter, $options: "i" } },
-        { lastName: { $regex: filter, $options: "i" } },
-      ],
-    });
+    const users = await User.find(req.queryFilter)
+      .skip(req.pagination.skip)
+      .limit(req.pagination.limit);
 
     return res.status(200).json({
+      ...req.pageInfo,
       users: users.map((user) => ({
         _id: user._id,
         email: user.email,
@@ -174,18 +176,19 @@ export const getUsers = async (req, res) => {
   }
 };
 
-export const validateAuth = async(req, res) => {
+export const getLoggedInUser = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("-password");
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     res.status(200).json({
       _id: user._id,
       email: user.email,
       firstName: user.firstName,
-      lastName: user.lastName
+      lastName: user.lastName,
+      createdAt: user.createdAt,
     });
   } catch (error) {
     console.error("Validate auth error:", error);

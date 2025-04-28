@@ -5,16 +5,16 @@ import { app } from "./app.js";
 const port = process.env.PORT;
 
 connectDB()
-.then( () => {
+  .then(() => {
     app.on("error", (error) => {
-        console.log("Application Error", error);
-        process.exit(1);
+      console.log("Application Error", error);
+      process.exit(1);
     });
     app.listen(port, () => {
-        console.log(`Application is  running on port ${port}`)
+      console.log(`Application is  running on port ${port}`);
     });
-})
-.catch(() => {
-    console.log("MongoDB connection failed", error)
+  })
+  .catch(() => {
+    console.log("MongoDB connection failed", error);
     process.exit(1);
-})
+  });

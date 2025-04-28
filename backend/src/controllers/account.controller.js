@@ -24,7 +24,7 @@ export const transferFund = async (req, res) => {
   try {
     session.startTransaction();
 
-    const { amount, to } = req.body;
+    const { amount, to, note } = req.body;
     if (!amount || !to) {
       return res.status(400).json({
         message: "Both amount and recipient id are required",
@@ -65,18 +65,20 @@ export const transferFund = async (req, res) => {
       });
     }
 
-    await Transaction.create(
+    const transactions = await Transaction.create(
       [
         {
           fromUser: req.userId,
           toUser: to,
           amount,
+          note,
           type: "DEBIT",
         },
         {
-          fromUser: to,
-          toUser: req.userId,
+          fromUser: req.userId,
+          toUser: to,
           amount,
+          note,
           type: "CREDIT",
         },
       ],
@@ -108,6 +110,11 @@ export const transferFund = async (req, res) => {
     await session.commitTransaction();
     return res.status(200).json({
       message: "Amount Tranfered Successfully",
+      transactionId: transactions[0]._id,
+      amount,
+      recipient: to,
+      note,
+      timestamp: transactions[0].createdAt,
     });
   } catch (error) {
     await session.abortTransaction();
@@ -120,23 +127,62 @@ export const transferFund = async (req, res) => {
   }
 };
 
-export const getTransactionHistory = async (req, res) => {
+export const getTransactionDetails = async (req, res) => {
   try {
-    const transactions = await Transaction.find({
-      $or: [
-        { fromUser: req.userId, type: "DEBIT" },
-        { toUser: req.userId, type: "CREDIT" },
-      ],
-    })
+    const { transactionId } = req.params;
+
+    const transaction = await Transaction.findById(transactionId)
       .populate("fromUser", "firstName lastName")
-      .populate("toUser", "firstName lastName")
-      .sort({ createdAt: -1 });
+      .populate("toUser", "firstName lastName");
+
+    if (!transaction) {
+      return res.status(404).json({
+        message: "Transaction not found",
+      });
+    }
+
+    if (
+      transaction.fromUser._id.toString() !== req.userId &&
+      transaction.toUser._id.toString() !== req.userId
+    ) {
+      return res.status(401).json({
+        message: "Unauthorized to view this transaction",
+      });
+    }
 
     return res.status(200).json({
+      id: transaction._id,
+      amount: transaction.amount,
+      type: transaction.type,
+      note: transaction.note,
+      fromUser: `${transaction.fromUser.firstName} ${transaction.fromUser.lastName}`,
+      toUser: `${transaction.toUser.firstName} ${transaction.toUser.lastName}`,
+      timestamp: transaction.createdAt,
+    });
+  } catch (error) {
+    console.error("Transaction details error:", error);
+    return res.status(500).json({
+      message: "Failed to fetch transaction details",
+    });
+  }
+};
+
+export const getTransactionHistory = async (req, res) => {
+  try {
+    const transactions = await Transaction.find(req.queryFilter)
+      .populate("fromUser", "firstName lastName")
+      .populate("toUser", "firstName lastName")
+      .sort({ createdAt: -1 })
+      .skip(req.pagination.skip)
+      .limit(req.pagination.limit);
+
+    return res.status(200).json({
+      ...req.pageInfo,
       transactions: transactions.map((transaction) => ({
         id: transaction._id,
         amount: transaction.amount,
         type: transaction.type,
+        note: transaction.note,
         fromUser: `${transaction.fromUser.firstName} ${transaction.fromUser.lastName}`,
         toUser: `${transaction.toUser.firstName} ${transaction.toUser.lastName}`,
         timestamp: transaction.createdAt,
